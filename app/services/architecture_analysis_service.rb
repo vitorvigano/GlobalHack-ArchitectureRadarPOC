@@ -110,7 +110,7 @@ class ArchitectureAnalysisService
       model:      MODEL,
       max_tokens: 8192,
       system:     SYSTEM_PROMPT,
-      messages:   [{ role: "user", content: user_message }]
+      messages:   [ { role: "user", content: user_message } ]
     )
 
     raw = response.content.find { |b| b.type == :text }&.text

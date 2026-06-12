@@ -8,7 +8,7 @@ class Project < ApplicationRecord
     "user_satisfaction"     => %w[performance availability fault_tolerance testability deployability agility security],
     "competitive_advantage" => %w[agility testability deployability scalability availability fault_tolerance],
     "time_and_budget"       => %w[simplicity feasibility],
-    "mergers_acquisitions"  => %w[interoperability scalability adaptability extensibility],
+    "mergers_acquisitions"  => %w[interoperability scalability adaptability extensibility]
   }.freeze
 
   def candidate_characteristics
