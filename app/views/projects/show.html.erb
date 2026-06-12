@@ -1,0 +1,340 @@
+<% content_for :title, "Architecture Radar — #{@project.domain.humanize}" %>
+
+<div class="rp-page">
+
+  <% if @analysis.nil? %>
+    <div class="rp-error">
+      <div class="rp-error-icon">⚠</div>
+      <h2>Analysis unavailable</h2>
+      <p>Please check that the <code>ANTHROPIC_API_KEY</code> environment variable is set correctly.</p>
+      <%= link_to "← New analysis", new_project_path, class: "rp-btn-back" %>
+    </div>
+
+  <% else %>
+    <%
+      raw_radar = @analysis["architectural_radar"] || []
+      radar_items = if raw_radar.is_a?(Array)
+        raw_radar.map { |item| item["name"] ||= item["attribute"]; item }
+      else
+        raw_radar.map do |k, v|
+          score    = v.is_a?(Hash) ? v["score"].to_i : v.to_i
+          category = v.is_a?(Hash) ? v["category"]   : "priority"
+          { "name" => k, "score" => score, "category" => category }
+        end
+      end
+
+      risk            = @analysis["risk_score"] || {}
+      trade_offs      = @analysis["trade_off_matrix"] || []
+      findings        = @analysis["architectural_findings"] || []
+      inconsistencies = @analysis["inconsistencies"] || []
+      final           = @analysis["final_recommendation"] || {}
+      risk_level      = risk["level"]&.downcase
+
+      max_score = radar_items.map { |i| i["score"].to_i }.max.to_i
+      score_scale = max_score <= 5 ? 5 : 10
+    %>
+
+    <%# ── Header ──────────────────────────────────────────── %>
+    <header class="rp-header">
+      <%= link_to "← New analysis", new_project_path, class: "rp-back" %>
+      <div class="rp-header-title">
+        <h1>Architecture Radar</h1>
+        <p><%= @project.domain.humanize %> · <%= @project.subdomain.humanize %></p>
+      </div>
+      <div class="rp-risk-badge rp-risk-badge--<%= risk_level %>">
+        <span class="rp-risk-badge-label">Risk Score</span>
+        <strong class="rp-risk-badge-num"><%= risk["overall"] %><em>/100</em></strong>
+        <span class="rp-risk-badge-level"><%= risk["level"] %></span>
+      </div>
+    </header>
+
+    <%# ── Hero: radar chart ──────────────────────────────── %>
+    <section class="rp-hero-chart" data-turbo-cache="false">
+      <div class="rp-chart-container">
+        <canvas id="radarChart" width="500" height="500"></canvas>
+      </div>
+      <div class="rp-chart-legend">
+        <span class="rp-legend-item">
+          <svg width="12" height="12" viewBox="0 0 12 12"><rect x="0" y="0" width="12" height="12" fill="#111" rx="1"/></svg>
+          Non-negotiable
+        </span>
+        <span class="rp-legend-item">
+          <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="6" fill="#20b28a"/></svg>
+          Priority — competes for the radar
+        </span>
+        <span class="rp-legend-item">
+          <svg width="26" height="4" viewBox="0 0 26 4"><line x1="0" y1="2" x2="26" y2="2" stroke="#aaa" stroke-width="1.5" stroke-dasharray="4,3"/></svg>
+          Maximize all — anti-pattern
+        </span>
+      </div>
+    </section>
+
+    <%# ── Score por dimensão (full width) ──────────────────── %>
+    <section class="rp-card rp-section">
+      <span class="rp-card-label">Scores by dimension</span>
+      <div class="rp-score-list">
+        <% radar_items.each do |item| %>
+          <% score         = item["score"].to_i
+             is_constraint = item["category"] == "constraint"
+             pct           = (score.to_f / score_scale * 100).round %>
+          <div class="rp-score-row">
+            <span class="rp-score-name">
+              <% if is_constraint %>
+                <svg class="rp-lock-icon" width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <rect x="1.5" y="4.5" width="7" height="5" rx="1" fill="#111"/>
+                  <path d="M3 4.5V3a2 2 0 1 1 4 0v1.5" stroke="#111" stroke-width="1.2" fill="none"/>
+                </svg>
+              <% end %>
+              <%= item["name"].to_s.tr("_", " ").capitalize %>
+            </span>
+            <div class="rp-score-track">
+              <div class="rp-score-fill rp-score-fill--<%= item["category"] %>" style="width:<%= pct %>%"></div>
+            </div>
+            <span class="rp-score-val"><%= score %><em>/<%= score_scale %></em></span>
+          </div>
+          <% if item["rationale"].present? %>
+            <p class="rp-score-rationale"><%= item["rationale"] %></p>
+          <% end %>
+        <% end %>
+      </div>
+    </section>
+
+    <%# ── Trade-off Matrix (full width) ─────────────────────── %>
+    <% if trade_offs.any? %>
+      <section class="rp-card rp-section">
+        <span class="rp-card-label">Trade-off Matrix</span>
+        <div class="rp-tradeoff-table">
+          <div class="rp-tradeoff-head">
+            <span>A × B</span>
+            <span>Decision</span>
+            <span>Benefit</span>
+            <span>Impact</span>
+            <span>Severity</span>
+          </div>
+          <% trade_offs.each do |t| %>
+            <div class="rp-tradeoff-row rp-tradeoff-row--<%= t["severity"]&.downcase %>">
+              <span class="rp-td-attrs">
+                <span class="rp-attr-tag"><%= t["attribute_a"] %></span>
+                <span class="rp-attr-sep">×</span>
+                <span class="rp-attr-tag"><%= t["attribute_b"] %></span>
+              </span>
+              <span class="rp-td-decision"><%= t["decision"] %></span>
+              <span class="rp-td-benefit"><%= t["benefit"] %></span>
+              <span class="rp-td-impact"><%= t["impact"] %></span>
+              <span class="rp-severity rp-severity--<%= t["severity"]&.downcase %>"><%= t["severity"] %></span>
+            </div>
+          <% end %>
+        </div>
+      </section>
+    <% end %>
+
+    <%# ── Recomendação Final (full width) ───────────────────── %>
+    <section class="rp-card rp-section">
+      <span class="rp-card-label">Final Recommendation</span>
+      <div class="rp-rec-risk">
+        <span class="rp-rec-risk-badge rp-rec-risk-badge--<%= risk_level %>">
+          <strong><%= risk["overall"] %>/100</strong>
+          <span><%= risk["level"] %></span>
+        </span>
+        <% if risk["rationale"].present? %>
+          <p class="rp-rec-risk-rationale"><%= risk["rationale"] %></p>
+        <% end %>
+      </div>
+      <p class="rp-rec-summary"><%= final["summary"] %></p>
+      <div class="rp-rec-columns">
+        <% if final["recommended_priorities"]&.any? %>
+          <div>
+            <p class="rp-rec-subtitle">Invest in</p>
+            <ol class="rp-priorities">
+              <% final["recommended_priorities"].each do |p| %>
+                <li><%= p %></li>
+              <% end %>
+            </ol>
+          </div>
+        <% end %>
+        <% if final["deliberately_sacrificed"]&.any? %>
+          <div>
+            <p class="rp-rec-subtitle rp-rec-subtitle--sacrifice">Deliberately sacrificed</p>
+            <ul class="rp-sacrificed">
+              <% final["deliberately_sacrificed"].each do |s| %>
+                <li><%= s %></li>
+              <% end %>
+            </ul>
+          </div>
+        <% end %>
+      </div>
+    </section>
+
+    <%# ── Análise Aprofundada ────────────────────────────────── %>
+    <% if findings.any? || inconsistencies.any? %>
+      <div class="rp-extras-divider">
+        <span>In-depth Analysis</span>
+      </div>
+
+      <% if findings.any? %>
+        <section class="rp-card rp-section">
+          <span class="rp-card-label">Architectural Findings</span>
+          <div class="rp-findings">
+            <% findings.each do |f| %>
+              <div class="rp-finding rp-finding--<%= f["type"]&.tr("_", "-") %>">
+                <div class="rp-finding-header">
+                  <h3><%= f["title"] %></h3>
+                  <span class="rp-finding-type-badge rp-finding-type-badge--<%= f["type"]&.tr("_", "-") %>">
+                    <%= f["type"]&.tr("_", " ") %>
+                  </span>
+                </div>
+                <% if f["related_inputs"]&.any? %>
+                  <div class="rp-finding-tags">
+                    <% f["related_inputs"].each do |input| %>
+                      <span class="rp-tag"><%= input %></span>
+                    <% end %>
+                  </div>
+                <% end %>
+                <p class="rp-finding-desc"><%= f["description"] %></p>
+                <div class="rp-finding-grid">
+                  <div class="rp-finding-block rp-finding-block--risk">
+                    <strong>Risk</strong>
+                    <span><%= f["risk"] %></span>
+                  </div>
+                  <div class="rp-finding-block">
+                    <strong>Recommendation</strong>
+                    <span><%= f["recommendation"] %></span>
+                  </div>
+                  <div class="rp-finding-block rp-finding-block--reason">
+                    <strong>Reasoning</strong>
+                    <span><%= f["reasoning"] %></span>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </section>
+      <% end %>
+
+      <% if inconsistencies.any? %>
+        <section class="rp-card rp-section rp-section--warn">
+          <span class="rp-card-label rp-card-label--warn">Detected Inconsistencies</span>
+          <div class="rp-findings">
+            <% inconsistencies.each do |inc| %>
+              <div class="rp-finding rp-finding--warn">
+                <h3 class="rp-finding-issue"><%= inc["issue"] %></h3>
+                <p class="rp-finding-desc"><%= inc["why"] %></p>
+                <div class="rp-finding-block">
+                  <strong>Recommendation</strong>
+                  <span><%= inc["recommendation"] %></span>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </section>
+      <% end %>
+    <% end %>
+
+  <% end %>
+</div>
+
+<%# ── Chart.js ────────────────────────────────────────────── %>
+<% if @analysis && radar_items.any? %>
+<script type="text/javascript">
+  window.__radarItems  = <%= radar_items.to_json.html_safe %>;
+  window.__radarScale  = <%= score_scale %>;
+</script>
+<script type="text/javascript" data-turbo-eval="true">
+(function () {
+  var TEAL  = '#20b28a';
+  var BLACK = '#111111';
+
+  function buildChart() {
+    if (typeof Chart === 'undefined') return;
+    var canvas = document.getElementById('radarChart');
+    if (!canvas) return;
+    var existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+
+    var ITEMS     = window.__radarItems || [];
+    var MAX_SCORE = window.__radarScale || 5;
+
+    var labels     = ITEMS.map(function(d) {
+      return (d.name || '').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+    });
+    var scores     = ITEMS.map(function(d) { return +d.score; });
+    var categories = ITEMS.map(function(d) { return d.category || 'priority'; });
+    var n          = ITEMS.length;
+
+    var pointStyles  = categories.map(function(c) { return c === 'constraint' ? 'rect'  : 'circle'; });
+    var pointColors  = categories.map(function(c) { return c === 'constraint' ? BLACK   : TEAL; });
+    var pointRadii   = categories.map(function(c) { return c === 'constraint' ? 7       : 5; });
+    var labelColors  = categories.map(function(c) { return c === 'constraint' ? BLACK   : TEAL; });
+    var labelWeights = categories.map(function(c) { return c === 'constraint' ? '700'   : '500'; });
+
+    new Chart(canvas, {
+      type: 'radar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            data: Array(n).fill(MAX_SCORE),
+            backgroundColor: 'transparent',
+            borderColor: 'rgba(0,0,0,0.14)',
+            borderWidth: 1.5,
+            borderDash: [5, 4],
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            order: 2,
+          },
+          {
+            data: scores,
+            backgroundColor: 'rgba(32,178,138,0.11)',
+            borderColor: TEAL,
+            borderWidth: 2.5,
+            pointStyle: pointStyles,
+            pointBackgroundColor: pointColors,
+            pointBorderColor: pointColors,
+            pointRadius: pointRadii,
+            pointHoverRadius: pointRadii.map(function(r) { return r + 2; }),
+            order: 1,
+          }
+        ]
+      },
+      options: {
+        responsive: false,
+        scales: {
+          r: {
+            min: 0,
+            max: MAX_SCORE,
+            ticks: { stepSize: 1, display: false, backdropColor: 'transparent' },
+            grid:       { color: 'rgba(0,0,0,0.08)' },
+            angleLines: { color: 'rgba(0,0,0,0.10)' },
+            pointLabels: {
+              color: labelColors,
+              font: labelColors.map(function(_, i) {
+                return { size: 13, family: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', weight: labelWeights[i] };
+              }),
+              padding: 16,
+            }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            filter: function(item) { return item.datasetIndex === 1; },
+            callbacks: {
+              label: function(c) {
+                var cat = categories[c.dataIndex] === 'constraint' ? 'non-negotiable' : 'priority';
+                return ' ' + c.raw + '/' + MAX_SCORE + ' (' + cat + ')';
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', buildChart);
+  document.addEventListener('turbo:load', buildChart);
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    buildChart();
+  }
+})();
+</script>
+<% end %>

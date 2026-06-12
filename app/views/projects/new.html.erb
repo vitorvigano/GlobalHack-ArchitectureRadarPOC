@@ -1,0 +1,303 @@
+<% content_for :title, "Architecture Radar" %>
+
+<%= form_with model: @project, data: { controller: "wizard" } do |f| %>
+  <div class="wizard-page">
+
+    <!-- Sidebar -->
+    <aside class="wizard-sidebar">
+      <h1 class="wizard-brand">Architecture Radar</h1>
+
+      <div class="wizard-progress">
+        <p class="wizard-progress-text" data-wizard-target="progressText"></p>
+        <div class="wizard-progress-bar">
+          <div class="wizard-progress-fill" data-wizard-target="progressFill"></div>
+        </div>
+      </div>
+
+      <nav class="wizard-step-list">
+        <div class="wizard-step-item active" data-wizard-target="stepItem" data-step="1">
+          <span class="wizard-step-number">1</span>
+          <div class="wizard-step-info">
+            <strong>Step 1</strong>
+            <p>What is your business domain?</p>
+          </div>
+        </div>
+
+        <div class="wizard-step-item" data-wizard-target="stepItem" data-step="2">
+          <span class="wizard-step-number">2</span>
+          <div class="wizard-step-info">
+            <strong>Step 2</strong>
+            <p>What is your area of focus?</p>
+          </div>
+        </div>
+
+        <div class="wizard-step-item" data-wizard-target="stepItem" data-step="3">
+          <span class="wizard-step-number">3</span>
+          <div class="wizard-step-info">
+            <strong>Step 3</strong>
+            <p>What are the project goals?</p>
+          </div>
+        </div>
+
+        <div class="wizard-step-item" data-wizard-target="stepItem" data-step="4">
+          <span class="wizard-step-number">4</span>
+          <div class="wizard-step-info">
+            <strong>Step 4</strong>
+            <p>What is the scale and criticality?</p>
+          </div>
+        </div>
+
+        <div class="wizard-step-item" data-wizard-target="stepItem" data-step="5">
+          <span class="wizard-step-number">5</span>
+          <div class="wizard-step-info">
+            <strong>Step 5</strong>
+            <p>What are the project constraints?</p>
+          </div>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main content -->
+    <div class="wizard-main">
+      <div class="wizard-body">
+
+        <!-- Step 1: Domain -->
+        <div data-wizard-target="step" data-step="1">
+          <h2 class="wizard-question">What is your business domain?</h2>
+          <div class="wizard-options">
+            <% [
+              ["financial_services",    "Fintech / Financial Services"],
+              ["ecommerce_marketplace", "E-commerce / Marketplace"],
+              ["saas_b2b",              "SaaS B2B / Platform"],
+              ["healthtech",            "Healthtech / Healthcare"],
+              ["internal_systems",      "Internal Tools / Internal Systems"],
+            ].each do |value, label| %>
+              <label class="wizard-option">
+                <%= f.radio_button :domain, value,
+                    id: "domain_#{value}",
+                    data: { action: "wizard#selectDomain" } %>
+                <span><%= label %></span>
+              </label>
+            <% end %>
+          </div>
+        </div>
+
+        <!-- Step 2: Subdomain (populated dynamically by Stimulus) -->
+        <div data-wizard-target="step" data-step="2" hidden>
+          <h2 class="wizard-question">What is your area of focus?</h2>
+          <div class="wizard-options" data-wizard-target="subdomainOptions">
+            <!-- filled by wizard_controller.js -->
+          </div>
+        </div>
+
+        <!-- Step 3: Business Drivers -->
+        <div data-wizard-target="step" data-step="3" hidden>
+          <h2 class="wizard-question">What are the main project goals?</h2>
+          <p class="wizard-hint">Choose up to 3. These define the <em>drivers</em> that guide the analysis.</p>
+
+          <div class="wizard-options">
+            <% [
+              ["time_to_market",       "Launch agility",          "Launch fast, iterate, and validate in the market"],
+              ["user_satisfaction",    "User satisfaction",       "Experience, performance, and perceived reliability"],
+              ["competitive_advantage","Competitive advantage",   "Differentiate and scale faster than competitors"],
+              ["time_and_budget",      "Time and budget",         "Deliver within time and cost limits"],
+              ["mergers_acquisitions", "Mergers & acquisitions",  "Integrate other companies' systems or be integrated"],
+            ].each do |value, label, desc| %>
+              <label class="wizard-option wizard-option--check">
+                <input type="checkbox"
+                       name="project[concerns][]"
+                       value="<%= value %>"
+                       data-wizard-target="concernCheckbox"
+                       data-action="wizard#selectConcern">
+                <div class="wizard-option-text">
+                  <span class="wizard-option-label"><%= label %></span>
+                  <span class="wizard-option-desc"><%= desc %></span>
+                </div>
+              </label>
+            <% end %>
+          </div>
+
+          <p class="wizard-counter" data-wizard-target="concernCounter">0 of 3 selected</p>
+        </div>
+
+        <!-- Step 4: Magnifiers -->
+        <div data-wizard-target="step" data-step="4" hidden>
+          <h2 class="wizard-question">What is the scale and criticality of the system?</h2>
+          <p class="wizard-hint">These factors <em>amplify</em> the weight of certain architectural characteristics.</p>
+
+          <div class="wizard-group">
+            <h3 class="wizard-group-title">How many users do you expect?</h3>
+            <div class="wizard-options">
+              <% [
+                ["lt_1k",    "Less than 1k"],
+                ["1k_10k",   "1k – 10k"],
+                ["10k_100k", "10k – 100k"],
+                ["100k_1m",  "100k – 1M"],
+                ["gt_1m",    "More than 1M"],
+              ].each do |value, label| %>
+                <label class="wizard-option">
+                  <%= f.radio_button :expected_users, value, data: { action: "wizard#selectMagnifier" } %>
+                  <span><%= label %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="wizard-group">
+            <h3 class="wizard-group-title">What is the expected growth?</h3>
+            <div class="wizard-options">
+              <% [
+                ["stable",    "Stable — predictable base"],
+                ["moderate",  "Moderate — gradual growth"],
+                ["high",      "High — accelerated growth"],
+                ["explosive", "Explosive — viral or aggressive launch"],
+              ].each do |value, label| %>
+                <label class="wizard-option">
+                  <%= f.radio_button :growth_rate, value, data: { action: "wizard#selectMagnifier" } %>
+                  <span><%= label %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="wizard-group">
+            <h3 class="wizard-group-title">What is the traffic pattern?</h3>
+            <div class="wizard-options">
+              <% [
+                ["steady",   "Uniform — predictable load throughout the day"],
+                ["seasonal", "Seasonal — peaks at certain times of year (e.g., Black Friday)"],
+                ["spiky",    "Unpredictable spikes — bursts without warning"],
+              ].each do |value, label| %>
+                <label class="wizard-option">
+                  <%= f.radio_button :traffic_pattern, value, data: { action: "wizard#selectMagnifier" } %>
+                  <span><%= label %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="wizard-group">
+            <h3 class="wizard-group-title">What happens if the system goes down for 1 hour?</h3>
+            <div class="wizard-options">
+              <% [
+                ["low",      "Inconvenient — users wait or use an alternative"],
+                ["medium",   "Moderate impact — productivity loss or partial revenue loss"],
+                ["high",     "High impact — significant revenue or reputation loss"],
+                ["critical", "Critical — risk to compliance, operations, or lives"],
+              ].each do |value, label| %>
+                <label class="wizard-option">
+                  <%= f.radio_button :criticality, value, data: { action: "wizard#selectMagnifier" } %>
+                  <span><%= label %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 5: Constraints -->
+        <div data-wizard-target="step" data-step="5" hidden>
+          <h2 class="wizard-question">What are the project constraints?</h2>
+          <p class="wizard-hint">Constraints <em>close doors</em> — they rule out characteristics the context cannot sustain.</p>
+
+          <div class="wizard-group">
+            <h3 class="wizard-group-title">What is the team size?</h3>
+            <div class="wizard-options">
+              <% [
+                ["solo",   "Solo — just me"],
+                ["small",  "Small — 2 to 5 people"],
+                ["medium", "Medium — 6 to 20 people"],
+                ["large",  "Large — more than 20 people"],
+              ].each do |value, label| %>
+                <label class="wizard-option">
+                  <%= f.radio_button :team_size, value, data: { action: "wizard#selectConstraint" } %>
+                  <span><%= label %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="wizard-group">
+            <h3 class="wizard-group-title">What is the team's seniority?</h3>
+            <div class="wizard-options">
+              <% [
+                ["junior", "Junior — mostly early-career"],
+                ["mixed",  "Mixed — combination of levels"],
+                ["senior", "Senior — mostly senior or specialist"],
+              ].each do |value, label| %>
+                <label class="wizard-option">
+                  <%= f.radio_button :team_experience, value, data: { action: "wizard#selectConstraint" } %>
+                  <span><%= label %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="wizard-group">
+            <h3 class="wizard-group-title">What is the budget level?</h3>
+            <div class="wizard-options">
+              <% [
+                ["bootstrapped", "Bootstrapped — very tight"],
+                ["moderate",     "Moderate — limited investment"],
+                ["comfortable",  "Comfortable — adequate investment"],
+                ["enterprise",   "Enterprise — ample budget"],
+              ].each do |value, label| %>
+                <label class="wizard-option">
+                  <%= f.radio_button :budget, value, data: { action: "wizard#selectConstraint" } %>
+                  <span><%= label %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="wizard-group">
+            <h3 class="wizard-group-title">Is there legacy system integration?</h3>
+            <div class="wizard-options">
+              <% [
+                ["none",    "No — new system, no legacy"],
+                ["simple",  "Yes, simple — one or two point integrations"],
+                ["complex", "Yes, complex — core system or multiple integrations"],
+              ].each do |value, label| %>
+                <label class="wizard-option">
+                  <%= f.radio_button :legacy_integration, value, data: { action: "wizard#selectConstraint" } %>
+                  <span><%= label %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="wizard-group">
+            <h3 class="wizard-group-title">Is there an existing architecture decision?</h3>
+            <p class="wizard-group-hint">Optional. The analysis may challenge decisions that don't fit the context.</p>
+            <div class="wizard-options">
+              <% [
+                ["none",             "No decision made"],
+                ["monolith",         "Monolith"],
+                ["modular_monolith", "Modular monolith"],
+                ["microservices",    "Microservices"],
+                ["serverless",       "Serverless"],
+                ["event_driven",     "Event-driven"],
+              ].each do |value, label| %>
+                <label class="wizard-option">
+                  <%= f.radio_button :architecture_style, value, data: { action: "wizard#selectConstraint" } %>
+                  <span><%= label %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Navigation -->
+      <footer class="wizard-nav">
+        <button type="button" class="btn-back" data-action="wizard#back" data-wizard-target="backButton" style="visibility: hidden;">
+          &lsaquo; Back
+        </button>
+        <button type="button" class="btn-next" data-action="wizard#next" data-wizard-target="nextButton" disabled>
+          Next &rsaquo;
+        </button>
+      </footer>
+    </div>
+
+  </div>
+<% end %>
